@@ -119,7 +119,7 @@ def blur_image(img):
 
 def online_add_degradation(img):
 
-    task_id=np.random.permutation(4)
+    task_id=np.random.permutation(3)
 
     for x in task_id:
         if x==0 and random.uniform(0,1)<0.7:
@@ -128,32 +128,18 @@ def online_add_degradation(img):
             flag = random.choice([1, 2, 3])
             if flag == 1:
                 img = synthesize_gaussian(img, 5, 50)
-            if flag == 2:
+            elif flag == 2:
                 img = synthesize_speckle(img, 5, 50)
-            if flag == 3:
+            elif flag == 3:
                 img = synthesize_salt_pepper(img, random.uniform(0, 0.01), random.uniform(0.3, 0.8))
         if x==2 and random.uniform(0,1)<0.7:
             img=synthesize_low_resolution(img)
 
-        if x==3 and random.uniform(0,1)<0.7:
-            img=convertToJpeg(img,random.randint(40,100))
-
     return img
 
 
-def irregular_hole_synthesize(img,mask):
 
-    img_np=np.array(img).astype('uint8')
-    mask_np=np.array(mask).astype('uint8')
-    mask_np=mask_np/255
-    img_new=img_np*(1-mask_np)+mask_np*255
-
-
-    hole_img=Image.fromarray(img_new.astype('uint8')).convert("RGB")
-
-    return hole_img,mask.convert("L")
-
-def zero_mask(size):
-    x=np.zeros((size,size,3)).astype('uint8')
-    mask=Image.fromarray(x).convert("RGB")
-    return mask
+def show_image(title, image):
+    cv2.imshow(title, cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
