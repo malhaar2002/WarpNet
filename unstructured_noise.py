@@ -85,7 +85,6 @@ def synthesize_speckle(image,std_l,std_r):
 
 def synthesize_low_resolution(img):
     w,h=img.size
-    print(w, h)
     new_w=random.randint(int(w/2),w)
     new_h=random.randint(int(h/2),h)
 
@@ -110,7 +109,7 @@ def blur_image(img):
     x=np.array(img)
     kernel_size_candidate=[(3,3),(5,5),(7,7)]
     kernel_size=random.sample(kernel_size_candidate,1)[0]
-    std=random.uniform(1.,5.)
+    std=random.uniform(1.,3.)
 
     #print("The gaussian kernel size: (%d,%d) std: %.2f"%(kernel_size[0],kernel_size[1],std))
     blur=cv2.GaussianBlur(x,kernel_size,std)
