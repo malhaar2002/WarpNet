@@ -4,3 +4,5 @@ checkpoints/
 checkpoints.zip
 kaggle/
 test_results.zip
+coco_persons_AB/
+coco_persons_AB.zip
