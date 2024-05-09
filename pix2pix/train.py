@@ -1,89 +1,66 @@
+import time
+import random
 import torch
-from utils import save_examples, save_checkpoint, load_checkpoint
-from torch.utils.data import DataLoader
-from torchvision.utils import save_image
-from dataloader import CocoDataset
-import torch.nn as nn
-import torch.optim as optim
-import config
-from generator import Generator
-from discriminator import Discriminator
-from tqdm import tqdm
+from options.train_options import TrainOptions
+from data import create_dataset
+from models import create_model
+from util.visualizer import Visualizer
+from torch.utils.data import DataLoader, RandomSampler
+import random
 
+if __name__ == '__main__':
+    opt = TrainOptions().parse()   # get training options
+    dataset_loader = create_dataset(opt)  # create a dataset loader given opt.dataset_mode and other options
+    dataset_size = len(dataset_loader.dataset)    # get the number of images in the dataset.
+    print('The number of training images = %d' % dataset_size)
 
-def train_fn(discriminator, generator, loader, opt_disc, opt_gen, l1_loss, bce, g_scaler, d_scaler):
-    loop = tqdm(loader, leave=True)
+    model = create_model(opt)      # create a model given opt.model and other options
+    model.setup(opt)               # regular setup: load and print networks; create schedulers
+    visualizer = Visualizer(opt)   # create a visualizer that display/save images and plots
+    total_iters = 0                # the total number of training iterations
 
-    for idx, (x, y) in enumerate(loop):
-        x, y = x.to(config.device), y.to(config.device)
+    for epoch in range(opt.epoch_count, opt.n_epochs + opt.n_epochs_decay + 1):    # outer loop for different epochs; we save the model by <epoch_count>, <epoch_count>+<save_latest_freq>
+        epoch_start_time = time.time()  # timer for entire epoch
+        iter_data_time = time.time()    # timer for data loading per iteration
+        epoch_iter = 0                  # the number of training iterations in current epoch, reset to 0 every epoch
+        visualizer.reset()              # reset the visualizer: make sure it saves the results to HTML at least once every epoch
+        model.update_learning_rate()    # update learning rates in the beginning of every epoch.
 
-        # Train Discriminator
-        with torch.cuda.amp.autocast():
-            y_fake = generator(x)
-            D_real = discriminator(x, y)
-            D_fake = discriminator(x, y_fake.detach())
-            D_loss = (bce(D_real, torch.ones_like(D_real)) + bce(D_fake, torch.zeros_like(D_fake))) / 2
+        # Randomly sample 2000 indices from the dataset for this epoch
+        random_indices = random.sample(range(dataset_size), 2000)
 
+        for idx in random_indices:  # inner loop within one epoch, iterate over the randomly sampled indices
+            iter_start_time = time.time()  # timer for computation per iteration
+            if total_iters % opt.print_freq == 0:
+                t_data = iter_start_time - iter_data_time
 
-        discriminator.zero_grad()
-        d_scaler.scale(D_loss).backward()
-        d_scaler.step(opt_disc)
-        d_scaler.update()
+            total_iters += opt.batch_size
+            epoch_iter += opt.batch_size
+            data = next(iter(dataset_loader))  # get the next batch of data from the dataset loader
+            model.set_input(data)         # unpack data from dataset and apply preprocessing
+            model.optimize_parameters()   # calculate loss functions, get gradients, update network weights
 
+            if total_iters % opt.display_freq == 0:   # display images on visdom and save images to a HTML file
+                save_result = total_iters % opt.update_html_freq == 0
+                model.compute_visuals()
+                visualizer.display_current_results(model.get_current_visuals(), epoch, save_result)
 
-        # Train Generator
-        with torch.cuda.amp.autocast():
-            D_fake = discriminator(x, y_fake)
-            gen_loss_fake = bce(D_fake, torch.ones_like(D_fake))
-            l1 = l1_loss(y_fake, y) * config.l1_lambda
-            gen_loss = gen_loss_fake + l1
+            if total_iters % opt.print_freq == 0:    # print training losses and save logging information to the disk
+                losses = model.get_current_losses()
+                t_comp = (time.time() - iter_start_time) / opt.batch_size
+                visualizer.print_current_losses(epoch, epoch_iter, losses, t_comp, t_data)
+                if opt.display_id > 0:
+                    visualizer.plot_current_losses(epoch, float(epoch_iter) / dataset_size, losses)
 
-        opt_gen.zero_grad()
-        g_scaler.scale(gen_loss).backward()
-        g_scaler.step(opt_gen)
-        g_scaler.update()
+            if total_iters % opt.save_latest_freq == 0:   # cache our latest model every <save_latest_freq> iterations
+                print('saving the latest model (epoch %d, total_iters %d)' % (epoch, total_iters))
+                save_suffix = 'iter_%d' % total_iters if opt.save_by_iter else 'latest'
+                model.save_networks(save_suffix)
 
-        # update tqdm loop
-        loop.set_postfix(d_loss=D_loss.item(), g_loss=gen_loss_fake.item())
+            iter_data_time = time.time()
+        if epoch % opt.save_epoch_freq == 0:              # cache our model every <save_epoch_freq> epochs
+            print('saving the model at the end of epoch %d, iters %d' % (epoch, total_iters))
+            model.save_networks('latest')
+            model.save_networks(epoch)
 
-
-def main():
-    discriminator = Discriminator(in_channels=3).to(config.device)
-    generator = Generator(in_channels=3).to(config.device)
-    opt_disc = optim.Adam(discriminator.parameters(), lr=config.learning_rate, betas=(0.5, 0.999))
-    opt_gen = optim.Adam(generator.parameters(), lr=config.learning_rate, betas=(0.5, 0.999))
-    BCE = nn.BCEWithLogitsLoss()
-    L1_LOSS = nn.L1Loss()
-
-    if config.load_model:
-        load_checkpoint(
-            config.checkpoint_file, generator, opt_gen, config.learning_rate,
-        )
-        load_checkpoint(
-            config.checkpoint_file, discriminator, opt_disc, config.learning_rate,
-        )
-
-    dataset = CocoDataset(root="D:\WarpNET\coco_persons")
-    loader = DataLoader(
-        dataset,
-        batch_size=config.batch_size,
-        shuffle=True,
-        num_workers=config.num_workers,
-    )
-    g_scaler = torch.cuda.amp.GradScaler()
-    d_scaler = torch.cuda.amp.GradScaler()
-
-
-
-    for epoch in range(config.num_epochs):
-        train_fn(discriminator, generator, loader, opt_disc, opt_gen, L1_LOSS, BCE, g_scaler, d_scaler)
-
-        if config.save_model and epoch % 5 == 0:
-            save_checkpoint(generator, opt_gen, filename="gen.pth.tar")
-            save_checkpoint(discriminator, opt_disc, filename="disc.pth.tar")
-
-        save_examples(generator, loader, epoch, folder="saved_images")
-
-
-if __name__ == "__main__":
-    main()
+        print('End of epoch %d / %d \t Time Taken: %d sec' % (epoch, opt.n_epochs + opt.n_epochs_decay, time.time() - epoch_start_time))
