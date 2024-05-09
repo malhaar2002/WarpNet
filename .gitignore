@@ -1,2 +1,6 @@
 images/
 dataset/
+checkpoints/
+checkpoints.zip
+kaggle/
+test_results.zip
