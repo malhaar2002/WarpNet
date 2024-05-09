@@ -5,26 +5,17 @@ from torch.utils.data import Dataset
 import config
 
 class CocoDataset(Dataset):
-    def __init__(self, root, transforms=None):
+    def __init__(self, root, transforms=None, subset='train'):
         self.root = root
         self.transforms = transforms
+        self.subset = subset  # 'train' or 'test'
         self.imgs = os.listdir(self.root)
 
     def __getitem__(self, idx):
-        img_path = os.path.join(self.root, self.imgs[idx])
-        img = np.array(Image.open(img_path))
-        input_img = img[:, :256, :]
-        target_img = img[:, 256:, :]
-        augemntations = config.transform_both(image=input_img, image0=target_img)
-        input_img, target_img = augemntations["image"], augemntations["image0"]
-        input_img = config.transform_only_input(image=input_img)["image"]
-        target_img = config.transform_only_mask(image=target_img)["image"]
-        
-        if self.transforms is not None:
-            img = self.transforms(img)
-            target = self.transforms(target)
-
-        return img, target
+        path = 'temp'    # needs to be a string
+        data_A = None    # needs to be a tensor
+        data_B = None    # needs to be a tensor
+        return {'data_A': data_A, 'data_B': data_B, 'path': path}
 
     def __len__(self):
         return len(self.imgs)

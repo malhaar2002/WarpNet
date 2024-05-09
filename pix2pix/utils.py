@@ -1,6 +1,6 @@
 import torch
 import config
-from torch.utils import save_image
+from torchvision.utils import save_image
 
 def save_examples(gen, val_loader, epoch, folder="saved_images", device=config.device):
     x,y = next(iter(val_loader))
