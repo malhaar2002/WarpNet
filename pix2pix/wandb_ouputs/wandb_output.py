@@ -1,7 +1,8 @@
 import wandb
 import os
+from secret import wandb_api
 
-os.environ['WANDB_API_KEY'] = 'd8aa8d5b3f2d3edfcdc12240ab2387d3d9399fe4'
+os.environ['WANDB_API_KEY'] = wandb_api
 
 api = wandb.Api()
 

@@ -17,3 +17,4 @@ latest_net_D.pth
 loss_log.txt
 file.zip
 paired_textures/
+pix2pix/wandb_ouputs/secret.py
