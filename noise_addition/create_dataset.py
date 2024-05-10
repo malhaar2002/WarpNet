@@ -4,8 +4,8 @@ import random
 from PIL import Image
 from unstructured_noise import online_add_degradation
 
-input_path = r"D:\WarpNET\coco_persons\B\train"
-output_path = r"D:\WarpNET\coco_persons\A\train"
+input_path = r"D:\WarpNET\coco_persons\B\test"
+output_path = r"D:\WarpNET\coco_persons\A\test"
 filters_path = r"D:\WarpNET\WarpNet\images\old_image_textures"
 
 

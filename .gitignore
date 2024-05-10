@@ -5,4 +5,15 @@ checkpoints.zip
 kaggle/
 test_results.zip
 coco_persons_AB/
+coco_persons_AB2/
 coco_persons_AB.zip
+coco_persons_AB2.zip
+media/
+restoration_checkpoints/
+restoration_checkpoints.zip
+web/
+latest_net_G.pth
+latest_net_D.pth
+loss_log.txt
+file.zip
+paired_textures/
